@@ -4,16 +4,20 @@ metrics:
     key: overall_score
     weight: 1.0  # Weight acts as a multiplier
     type: direct_scaled
+    base_max_value: 10 # OpenSSF scores are 0-10
     scale_factor: 100 # OpenSSF score is 0-10, scale to 1000
+    max_score: 1000
     note: "The score from OpenSSF is on a 0-10 scale and is multiplied by 100 for a max of 1000 points."
 
   - name: sonarqube_coverage
     source: sonarqube
     key: coverage
-    weight: 1.0
+    weight: 1
     type: direct_scaled
-    scale_factor: 50 # Scale to 500
-    note: "Direct percentage of code covered by tests. Max 500 points."
+    scale_factor: 5 # Coverage score is 0-100, scale to 500
+    base_max_value: 100 # SonarQube coverage is a percentage from 0-100
+    max_score: 500
+    note: "Absolute percentage of code covered by tests. Max 500 points."
 
   - name: sonarqube_vulnerabilities
     source: sonarqube
@@ -47,6 +51,7 @@ metrics:
     key: duplicated_lines_density
     weight: 1.0
     type: inverted_percentage
+    base_max_value: 100
     max_score: 100 # Max 100 points for this metric
     note: "Starts at 100; decreases with duplication percentage."
 
@@ -55,6 +60,7 @@ metrics:
     key: custom_metric
     weight: 1.0
     type: inverted_percentage
+    base_max_value: 100
     max_score: 100 # Max 100 points for this metric
     note: "Starts at 100; decreases with custom_metric percentage."
 
@@ -69,7 +75,9 @@ metrics:
   - name: new_custom_metric3
     source: custom_source
     key: custom_metric3
-    weight: 1.0
-    type: inverted_percentage
-    max_score: 100 # Max 100 points for this metric
-    note: "Starts at 100; decreases with custom_metric3 percentage."
+    weight: 0.5
+    type: direct_scaled
+    base_max_value: 10 # OpenSSF scores are 0-10
+    scale_factor: 100
+    max_score: 500
+    note: "Custom metric 3 is on a 0-10 scale and is multiplied by 100 for a max of 1000 points."

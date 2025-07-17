@@ -39,7 +39,7 @@ def get_db_connection():
 def load_scoring_config():
     """Load the scoring formula from the YAML configuration file."""
     # Adjust the path to be relative to the api directory
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'data-ingestion', 'scoring_config.yaml')
+    config_path = os.path.join(os.path.dirname(__file__), 'scoring_config', 'scoring_config.yaml')
     try:
         with open(config_path, 'r') as f:
             return yaml.safe_load(f)
@@ -54,18 +54,26 @@ def calculate_max_score(scoring_config):
 
     max_score = 0
     for metric in scoring_config['metrics']:
+        metric_max_score = 0;
         weight = metric.get('weight', 1.0)
         metric_type = metric.get('type')
 
         if metric_type == 'direct_scaled':
-            # OpenSSF score is 0-10, scaled by scale_factor
-            max_score += 10 * metric.get('scale_factor', 1) * weight
+            # Use the base_max_value from config, defaulting to 10 for backward compatibility
+            base_max = metric.get('base_max_value', 10)
+            metric_max_score = base_max * metric.get('scale_factor', 1) * weight
+            max_score += metric_max_score
+            logger.info(f"Direct scaled metric: {metric['name']}, base_max: {base_max}, max score: {metric_max_score}")
         elif metric_type == 'direct':
             # Direct percentage, max 100
-            max_score += 100 * weight
+            metric_max_score = 100 * weight
+            max_score += metric_max_score
+            logger.info(f"Direct metric: {metric['name']}, max score: {metric_max_score}")
         elif metric_type in ['inverted_scaled', 'inverted_percentage']:
             # Score starts at max_score and decreases
-            max_score += metric.get('max_score', 0) * weight
+            metric_max_score = metric.get('max_score', 0) * weight
+            max_score += metric_max_score
+            logger.info(f"Inverted metric: {metric['name']}, max score: {metric_max_score}")
             
     return max_score
 
@@ -88,6 +96,7 @@ def get_latest_scan(project_name: str):
                 SELECT scan_id, project_name, scan_date, final_score
                 FROM project_scans
                 WHERE project_name = %s
+                AND final_score IS NOT NULL
                 ORDER BY scan_date DESC
                 LIMIT 1;
                 """,
@@ -101,12 +110,20 @@ def get_latest_scan(project_name: str):
 
             scan_id = latest_scan['scan_id']
 
-            # Fetch all metadata for that scan
+            # Fetch all metadata and their scores for that scan
             cursor.execute(
                 """
-                SELECT metric_key, metric_value, metric_source
-                FROM scan_metadata
-                WHERE scan_id = %s;
+                SELECT
+                    sm.metric_key,
+                    sm.metric_value,
+                    sm.metric_source,
+                    ms.score
+                FROM
+                    scan_metadata sm
+                LEFT JOIN
+                    metadata_scores ms ON sm.metadata_id = ms.metadata_id
+                WHERE
+                    sm.scan_id = %s;
                 """,
                 (scan_id,)
             )
@@ -120,7 +137,8 @@ def get_latest_scan(project_name: str):
                     grouped_metadata[source] = []
                 grouped_metadata[source].append({
                     'metric_key': record['metric_key'],
-                    'metric_value': record['metric_value']
+                    'metric_value': record['metric_value'],
+                    'score': record['score']
                 })
             
             # Sort the metrics within each group

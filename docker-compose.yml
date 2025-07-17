@@ -42,7 +42,8 @@ services:
 
   api:
     build:
-      context: ./api
+      context: .
+      dockerfile: ./api/Dockerfile
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -57,7 +58,8 @@ services:
 
   data-ingestion:
     build:
-      context: ./data-ingestion
+      context: .
+      dockerfile: ./data-ingestion/Dockerfile
     restart: on-failure
     depends_on:
       - postgres

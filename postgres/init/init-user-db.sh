@@ -26,4 +26,13 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "scorecard" <<-EOSQ
 
     CREATE INDEX IF NOT EXISTS idx_scan_id ON scan_metadata(scan_id);
     CREATE INDEX IF NOT EXISTS idx_project_name ON project_scans(project_name);
+
+    CREATE TABLE IF NOT EXISTS metadata_scores (
+        score_id SERIAL PRIMARY KEY,
+        metadata_id INTEGER NOT NULL REFERENCES scan_metadata(metadata_id) ON DELETE CASCADE,
+        score NUMERIC(10, 2) NOT NULL,
+        UNIQUE(metadata_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_metadata_id ON metadata_scores(metadata_id);
 EOSQL

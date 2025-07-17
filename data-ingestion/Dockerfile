@@ -17,11 +17,14 @@ RUN go install github.com/ossf/scorecard/v4@latest
 ENV PATH=$PATH:/root/go/bin
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY data-ingestion/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the shared scoring configuration
+COPY scoring_config/scoring_config.yaml ./scoring_config/scoring_config.yaml
+
 # Copy the ingestion scripts
-COPY . .
+COPY data-ingestion/ .
 
 # Run the data ingestion script
 CMD ["python", "new_ingestor.py"]

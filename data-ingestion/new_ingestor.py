@@ -61,7 +61,7 @@ def create_scan_record(conn, project_name):
         return None
 
 def store_metadata_record(conn, scan_id, key, value, source):
-    """Store a single metadata record."""
+    """Store a single metadata record and return its ID."""
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -69,12 +69,33 @@ def store_metadata_record(conn, scan_id, key, value, source):
                 INSERT INTO scan_metadata (scan_id, metric_key, metric_value, metric_source)
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (scan_id, metric_key, metric_source) DO UPDATE SET
-                    metric_value = EXCLUDED.metric_value;
+                    metric_value = EXCLUDED.metric_value
+                RETURNING metadata_id;
                 """,
                 (scan_id, key, str(value), source)
             )
+            metadata_id = cursor.fetchone()[0]
+            return metadata_id
     except psycopg2.Error as e:
         logger.error(f"Failed to store metadata for scan {scan_id}: {key}={value} from {source}. Error: {e}")
+        conn.rollback()
+    return None
+
+def store_metadata_score(conn, metadata_id, score):
+    """Store the calculated score for a metadata record."""
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO metadata_scores (metadata_id, score)
+                VALUES (%s, %s)
+                ON CONFLICT (metadata_id) DO UPDATE SET
+                    score = EXCLUDED.score;
+                """,
+                (metadata_id, score)
+            )
+    except psycopg2.Error as e:
+        logger.error(f"Failed to store score for metadata_id {metadata_id}: {e}")
         conn.rollback()
 
 def update_final_score(conn, scan_id, score):
@@ -165,7 +186,7 @@ def collect_openssf_metrics(repo_url, scan_id):
 # --- Scoring Algorithm ---
 def load_scoring_config():
     """Load the scoring formula from the YAML configuration file."""
-    config_path = os.path.join(os.path.dirname(__file__), 'scoring_config.yaml')
+    config_path = os.path.join(os.path.dirname(__file__), 'scoring_config', 'scoring_config.yaml')
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
@@ -177,10 +198,14 @@ def calculate_final_score(scan_id):
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT metric_key, metric_value, metric_source FROM scan_metadata WHERE scan_id = %s;", (scan_id,))
+            cursor.execute("SELECT metadata_id, metric_key, metric_value, metric_source FROM scan_metadata WHERE scan_id = %s;", (scan_id,))
             records = cursor.fetchall()
-    finally:
-        conn.close()
+    except psycopg2.Error as e:
+        logger.error(f"Error fetching metadata for score calculation: {e}")
+        if conn:
+            conn.close()
+        return 0.0
+
 
     if not records:
         logger.warning(f"No metadata found for scan ID {scan_id}. Cannot calculate score.")
@@ -189,10 +214,12 @@ def calculate_final_score(scan_id):
     config = load_scoring_config()
     metrics_config = config.get('metrics', [])
     
-    metrics_by_source = {rec[2]: {} for rec in records}
-    for key, value, source in records:
+    metrics_by_source = {rec[3]: {} for rec in records}
+    metadata_ids = {}
+    for metadata_id, key, value, source in records:
         try:
             metrics_by_source[source][key] = float(value)
+            metadata_ids[(source, key)] = metadata_id
         except (ValueError, TypeError):
             pass
 
@@ -223,11 +250,21 @@ def calculate_final_score(scan_id):
             max_score = metric_def.get('max_score', 100)
             metric_score = max_score - raw_value
 
+        # Store the individual metric score
+        metadata_id = metadata_ids.get((source, key))
+        if metadata_id is not None:
+            store_metadata_score(conn, metadata_id, metric_score)
+
         total_score += metric_score * weight
         total_weight += weight
 
     # The final score is the sum of weighted scores, not a normalized average
     final_score = total_score
+
+    # Commit all individual scores and close the connection
+    conn.commit()
+    conn.close()
+
     return round(final_score, 2)
 
 # --- Main Workflow ---
