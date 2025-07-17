@@ -85,4 +85,4 @@ github.com/owner/repo2
 
 ## License
 
-[Your License]
+MIT
