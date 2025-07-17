@@ -73,10 +73,6 @@ github.com/owner/repo2
 - Initial setup: After first login, generate a token for the data ingestion service
 - Port: 9000
 
-### Backstage
-- Port: 7007
-- Customize by modifying files in the `backstage` directory
-
 ## Troubleshooting
 
 - **SonarQube fails to start**: Ensure your Docker has enough memory allocated (at least 4GB)
