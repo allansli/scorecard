@@ -1,0 +1,74 @@
+metrics:
+  - name: openssf_overall_score
+    source: openssf
+    key: overall_score
+    weight: 1.0  # Weight acts as a multiplier
+    type: direct_scaled
+    scale_factor: 100 # OpenSSF score is 0-10, scale to 1000
+    note: "The score from OpenSSF is on a 0-10 scale and is multiplied by 100 for a max of 1000 points."
+
+  - name: sonarqube_coverage
+    source: sonarqube
+    key: coverage
+    weight: 1.0
+    type: direct
+    note: "Direct percentage of code covered by tests. Max 100 points."
+
+  - name: sonarqube_vulnerabilities
+    source: sonarqube
+    key: vulnerabilities
+    weight: 1.0
+    type: inverted_scaled
+    scale_factor: 20 # Each vulnerability costs 20 points
+    max_score: 500   # Max 500 points for this metric
+    note: "Starts at 500; decreases by 20 for each vulnerability."
+
+  - name: sonarqube_bugs
+    source: sonarqube
+    key: bugs
+    weight: 1.0
+    type: inverted_scaled
+    scale_factor: 10 # Each bug costs 10 points
+    max_score: 500   # Max 500 points for this metric
+    note: "Starts at 500; decreases by 10 for each bug."
+
+  - name: sonarqube_code_smells
+    source: sonarqube
+    key: code_smells
+    weight: 1.0
+    type: inverted_scaled
+    scale_factor: 1 # Each code smell costs 1 point
+    max_score: 200  # Max 200 points for this metric
+    note: "Starts at 200; decreases by 1 for each code smell."
+
+  - name: sonarqube_duplicated_lines_density
+    source: sonarqube
+    key: duplicated_lines_density
+    weight: 1.0
+    type: inverted_percentage
+    max_score: 100 # Max 100 points for this metric
+    note: "Starts at 100; decreases with duplication percentage."
+
+  - name: new_custom_metric
+    source: custom_source
+    key: custom_metric
+    weight: 1.0
+    type: inverted_percentage
+    max_score: 100 # Max 100 points for this metric
+    note: "Starts at 100; decreases with custom_metric percentage."
+
+  - name: new_custom_metric2
+    source: custom_source
+    key: custom_metric2
+    weight: 1.0
+    type: inverted_percentage
+    max_score: 100 # Max 100 points for this metric
+    note: "Starts at 100; decreases with custom_metric2 percentage."
+
+  - name: new_custom_metric3
+    source: custom_source
+    key: custom_metric3
+    weight: 1.0
+    type: inverted_percentage
+    max_score: 100 # Max 100 points for this metric
+    note: "Starts at 100; decreases with custom_metric3 percentage."

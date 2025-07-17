@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database for both Backstage and data storage
+  postgres:
+    image: postgres:14
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres # This will be the default database
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - backend
+
+  # SonarQube service
+  sonarqube:
+    image: sonarqube:community
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://postgres:5432/sonar
+      SONAR_JDBC_USERNAME: postgres
+      SONAR_JDBC_PASSWORD: postgres
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-logs:/opt/sonarqube/logs
+      - sonarqube-extensions:/opt/sonarqube/extensions
+    networks:
+      - backend
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data-ingestion:/data-ingestion:ro
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    networks:
+      - backend
+
+  data-ingestion:
+    build:
+      context: ./data-ingestion
+    restart: on-failure
+    depends_on:
+      - postgres
+      - sonarqube
+    env_file:
+      - .env
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  sonarqube-data:
+  sonarqube-logs:
+  sonarqube-extensions:
