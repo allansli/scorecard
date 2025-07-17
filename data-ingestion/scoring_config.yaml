@@ -11,8 +11,9 @@ metrics:
     source: sonarqube
     key: coverage
     weight: 1.0
-    type: direct
-    note: "Direct percentage of code covered by tests. Max 100 points."
+    type: direct_scaled
+    scale_factor: 50 # Scale to 500
+    note: "Direct percentage of code covered by tests. Max 500 points."
 
   - name: sonarqube_vulnerabilities
     source: sonarqube
